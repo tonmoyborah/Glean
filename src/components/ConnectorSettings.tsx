@@ -24,6 +24,7 @@ export default function ConnectorSettings({ isOpen, onClose }: ConnectorSettings
   };
 
   const handleToggleEnabled = (connectorId: string, isEnabled: boolean) => {
+    console.log('Toggle enabled:', connectorId, isEnabled);
     updateConnector(connectorId, { isEnabled });
   };
 
@@ -130,13 +131,13 @@ export default function ConnectorSettings({ isOpen, onClose }: ConnectorSettings
 
                   <div className="flex items-center gap-4">
                     {/* Enable/Disable Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={connector.isEnabled}
                         onChange={(e) => handleToggleEnabled(connector.id, e.target.checked)}
-                        className="w-3.5 h-3.5 rounded border-neutral-300 transition-smooth cursor-pointer"
-                        style={{ accentColor: 'var(--accent)' }}
+                        className="cursor-pointer"
+                        aria-label={`Enable ${connector.name}`}
                       />
                       <span className="text-[13px]" style={{ color: 'var(--foreground)' }}>Enabled</span>
                     </label>

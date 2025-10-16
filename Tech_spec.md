@@ -8,16 +8,25 @@ Glean is a unified mentions feed that aggregates all @-mentions and assignments 
 ### 1. Unified Mentions Feed
 - **Purpose**: Single chronological feed aggregating mentions and assignments from all connectors
 - **Display Elements**: 
+  - Status checkbox (mark as done)
+  - Sender avatar (32x32px, rounded)
   - Sender information
   - Timestamp
   - Source app (Slack, Email, Jira)
   - Brief context snippet (2-3 lines)
   - Thread responses indicator
+  - Priority badge
+  - Hover actions (snooze, open)
 - **Priority**: Items from priority connectors are highlighted
 
 ### 2. Context Preview
 - **Purpose**: Provide 2-3 line preview of surrounding conversation/document
-- **Implementation**: Expandable preview on hover/click
+- **Implementation**: Always visible right panel with auto-selection
+- **Default Behavior**: 
+  - Always visible (384px fixed width)
+  - Automatically selects first mention on load
+  - Auto-updates selection when filters change
+  - Shows empty state when no mentions available
 - **Content**: Shows relevant context without full app switching
 
 ### 3. Quick Inline Actions
@@ -56,6 +65,8 @@ Glean is a unified mentions feed that aggregates all @-mentions and assignments 
 - **State Management**: Zustand
 - **UI Components**: Radix UI + Custom components
 - **Icons**: Lucide React
+- **Images**: Next.js Image component with external domain support
+  - Configured for api.dicebear.com (avatar generation)
 
 ### Data Models
 
@@ -98,6 +109,17 @@ interface Connector {
   priority: number; // 1-5, higher = more important
   isConnected: boolean;
   lastSync?: Date;
+}
+```
+
+#### FilterState
+```typescript
+interface FilterState {
+  sources: string[];
+  types: string[];
+  users: string[];
+  timeRange: 'today' | 'this_week' | 'this_month' | 'all';
+  sortBy: 'recency' | 'priority' | 'manual';
 }
 ```
 
@@ -154,11 +176,15 @@ src/
 The application is fully functional with all core features implemented:
 
 - **Unified Mentions Feed**: Displays all mentions in chronological order with proper grouping
-- **Context Preview**: Right sidebar shows detailed mention information and actions
+- **Context Preview**: Right sidebar (always visible, 384px width) shows detailed mention information and actions
+  - Auto-selects first mention on page load
+  - Maintains selection when filtering unless filtered out
+  - Updates to first available mention when current selection is filtered out
+  - Shows empty state when no mentions are available
 - **Filtering & Sorting**: Complete filtering by source, type, time, and sorting options
 - **Quick Actions**: Mark as done, snooze, and open source functionality
 - **Connector Management**: Priority assignment and enable/disable toggles
-- **State Management**: Zustand store for all application state
+- **State Management**: Zustand store for all application state with smart default selection
 - **Responsive Design**: Works on desktop and mobile devices
 
 ### Design System
@@ -166,11 +192,12 @@ The application is fully functional with all core features implemented:
 The UI follows a Linear-inspired design aesthetic:
 
 - **Color Palette**: 
-  - Background: `#fafafa`
-  - Foreground: `#16161d`
+  - Background: `#0d0d0d` (dark mode)
+  - Foreground: `#e4e4e7`
   - Accent: `#5e6ad2` (purple)
-  - Muted: `#6e6e80`
-  - Borders: Subtle grays (`#e5e5e5`, `#f0f0f0`)
+  - Muted: `#a1a1aa`
+  - Borders: `#27272a` and `#1c1c1f`
+  - Card Background: `#18181b`
 
 - **Typography**:
   - Font: System fonts (-apple-system, BlinkMacSystemFont, Segoe UI, Roboto)
@@ -183,6 +210,13 @@ The UI follows a Linear-inspired design aesthetic:
   - Clean hover states with subtle background changes
   - Consistent spacing using Tailwind's spacing scale
   - Custom scrollbars matching the design aesthetic
+  - Custom styled checkboxes with proper dark mode visibility
+    - 16px × 16px size with 1.5px borders
+    - Gray border (#52525b) on unchecked state with dark background (#18181b)
+    - Purple background (#5e6ad2) when checked
+    - Smooth hover states with purple tint
+    - White checkmark icon on checked state
+    - Full toggle functionality (check/uncheck)
 
 - **Interactions**:
   - Checkbox-based task completion (Linear-style)

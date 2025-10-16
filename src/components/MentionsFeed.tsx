@@ -2,7 +2,7 @@
 
 import { useMentionsStore } from '@/store/mentions-store';
 import MentionItem from './MentionItem';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 // import { formatDistanceToNow } from 'date-fns';
 
 export default function MentionsFeed() {
@@ -95,6 +95,23 @@ export default function MentionsFeed() {
   const handleMentionClick = (mention: typeof mentions[0]) => {
     setSelectedMention(mention);
   };
+
+  // Auto-select first mention when filtered mentions change and no selection exists
+  useEffect(() => {
+    if (groupedMentions.length > 0 && !selectedMention) {
+      setSelectedMention(groupedMentions[0]);
+    } else if (groupedMentions.length > 0 && selectedMention) {
+      // Check if selected mention is still in filtered list
+      const isStillVisible = groupedMentions.find(m => m.id === selectedMention.id);
+      if (!isStillVisible) {
+        // Select first mention if current selection is filtered out
+        setSelectedMention(groupedMentions[0]);
+      }
+    } else if (groupedMentions.length === 0) {
+      // Clear selection if no mentions
+      setSelectedMention(null);
+    }
+  }, [groupedMentions, selectedMention, setSelectedMention]);
 
   return (
     <div className="flex-1 overflow-y-auto">

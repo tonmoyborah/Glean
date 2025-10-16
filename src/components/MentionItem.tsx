@@ -3,7 +3,6 @@
 import { MentionItem as MentionItemType } from '@/lib/types';
 import { useMentionsStore } from '@/store/mentions-store';
 import { 
-  Clock, 
   CheckCircle2, 
   Timer, 
   ExternalLink, 
@@ -11,9 +10,10 @@ import {
   Mail,
   AlertCircle,
   Circle,
-  CheckCircle
+  User,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import Image from 'next/image';
 
 interface MentionItemProps {
   mention: MentionItemType;
@@ -100,6 +100,26 @@ export default function MentionItem({ mention, isSelected, onClick }: MentionIte
           >
             {isDone && <CheckCircle2 className="w-3 h-3 text-white" strokeWidth={3} />}
           </button>
+        </div>
+
+        {/* Avatar */}
+        <div className="flex-shrink-0">
+          {mention.sender.avatar ? (
+            <Image
+              src={mention.sender.avatar}
+              alt={mention.sender.name}
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-full"
+            />
+          ) : (
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ background: 'var(--muted-bg)' }}
+            >
+              <User className="w-4 h-4" style={{ color: 'var(--muted)' }} strokeWidth={2} />
+            </div>
+          )}
         </div>
 
         {/* Content */}

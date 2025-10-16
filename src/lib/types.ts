@@ -37,7 +37,8 @@ export interface Connector {
 export interface FilterState {
   sources: string[];
   types: string[];
-  timeRange: 'today' | 'this_week' | 'all';
+  users: string[];
+  timeRange: 'today' | 'this_week' | 'this_month' | 'all';
   sortBy: 'recency' | 'priority' | 'manual';
 }
 

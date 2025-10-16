@@ -12,7 +12,7 @@ export const useMentionsStore = create<MentionsStore>((set, get) => ({
     timeRange: 'all',
     sortBy: 'recency',
   },
-  selectedMention: null,
+  selectedMention: mockMentions.length > 0 ? mockMentions[0] : null,
 
   setMentions: (mentions) => set({ mentions }),
 

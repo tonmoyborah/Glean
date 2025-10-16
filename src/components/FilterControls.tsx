@@ -219,14 +219,14 @@ export default function FilterControls() {
             >
               <div className="p-1.5">
                 {[
-                  { value: 'today', label: 'Today' },
-                  { value: 'this_week', label: 'This week' },
-                  { value: 'this_month', label: 'This month' },
-                  { value: 'all', label: 'All time' },
+                  { value: 'today' as const, label: 'Today' },
+                  { value: 'this_week' as const, label: 'This week' },
+                  { value: 'this_month' as const, label: 'This month' },
+                  { value: 'all' as const, label: 'All time' },
                 ].map((option) => (
                   <button
                     key={option.value}
-                    onClick={() => handleTimeRangeChange(option.value as any)}
+                    onClick={() => handleTimeRangeChange(option.value)}
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded text-[13px] transition-smooth"
                     style={{ 
                       background: filters.timeRange === option.value ? 'var(--selected-bg)' : 'transparent',

@@ -3,6 +3,7 @@
 import { useMentionsStore } from '@/store/mentions-store';
 import { ExternalLink, MessageSquare, Mail, AlertCircle, CheckCircle2, Timer, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import Image from 'next/image';
 
 const sourceIcons = {
   slack: MessageSquare,
@@ -13,8 +14,28 @@ const sourceIcons = {
 export default function ContextPreview() {
   const { selectedMention, updateMentionStatus, snoozeMention } = useMentionsStore();
 
-  // Component only renders when selectedMention exists (checked in parent)
-  if (!selectedMention) return null;
+  // Show empty state when no mention is selected
+  if (!selectedMention) {
+    return (
+      <div className="w-96 border-l overflow-y-auto" style={{ borderColor: 'var(--border)', background: 'var(--card-bg)' }}>
+        <div className="p-6 flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="mb-3" style={{ color: 'var(--muted)' }}>
+              <svg className="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <h3 className="text-[14px] font-medium mb-1" style={{ color: 'var(--foreground)' }}>
+              No mention selected
+            </h3>
+            <p className="text-[13px]" style={{ color: 'var(--muted)' }}>
+              Select a mention to view details
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const SourceIcon = sourceIcons[selectedMention.source];
   const timeAgo = formatDistanceToNow(selectedMention.timestamp, { addSuffix: true });
@@ -36,9 +57,11 @@ export default function ContextPreview() {
         <div className="mb-6">
           <div className="flex items-start gap-3 mb-4">
             {selectedMention.sender.avatar ? (
-              <img
+              <Image
                 src={selectedMention.sender.avatar}
                 alt={selectedMention.sender.name}
+                width={40}
+                height={40}
                 className="w-10 h-10 rounded-full"
               />
             ) : (

@@ -1,6 +1,5 @@
 'use client';
 
-import { useMentionsStore } from '@/store/mentions-store';
 import FilterControls from '@/components/FilterControls';
 import MentionsFeed from '@/components/MentionsFeed';
 import ContextPreview from '@/components/ContextPreview';
@@ -9,7 +8,6 @@ import { Inbox, Settings } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Home() {
-  const { connectors, selectedMention } = useMentionsStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
@@ -48,8 +46,8 @@ export default function Home() {
         {/* Mentions Feed */}
         <MentionsFeed />
         
-        {/* Context Preview - Only show when a mention is selected */}
-        {selectedMention && <ContextPreview />}
+        {/* Context Preview - Always visible */}
+        <ContextPreview />
       </div>
 
       {/* Connector Settings Modal */}
