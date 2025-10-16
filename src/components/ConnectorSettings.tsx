@@ -24,7 +24,6 @@ export default function ConnectorSettings({ isOpen, onClose }: ConnectorSettings
   };
 
   const handleToggleEnabled = (connectorId: string, isEnabled: boolean) => {
-    console.log('Toggle enabled:', connectorId, isEnabled);
     updateConnector(connectorId, { isEnabled });
   };
 
@@ -119,7 +118,7 @@ export default function ConnectorSettings({ isOpen, onClose }: ConnectorSettings
                           {connector.lastSync && (
                             <>
                               <span className="text-[12px]" style={{ color: 'var(--muted)' }}>·</span>
-                              <span className="text-[12px]" style={{ color: 'var(--muted)' }}>
+                              <span className="text-[12px]" style={{ color: 'var(--muted)' }} suppressHydrationWarning>
                                 {new Date(connector.lastSync).toLocaleTimeString()}
                               </span>
                             </>

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
+import { useState } from 'react';
 
 interface MentionItemProps {
   mention: MentionItemType;
@@ -35,6 +36,7 @@ const priorityConfig = {
 
 export default function MentionItem({ mention, isSelected, onClick }: MentionItemProps) {
   const { updateMentionStatus, snoozeMention, connectors } = useMentionsStore();
+  const [imageError, setImageError] = useState(false);
   
   const SourceIcon = sourceIcons[mention.source];
   const timeAgo = formatDistanceToNow(mention.timestamp, { addSuffix: true });
@@ -104,13 +106,15 @@ export default function MentionItem({ mention, isSelected, onClick }: MentionIte
 
         {/* Avatar */}
         <div className="flex-shrink-0">
-          {mention.sender.avatar ? (
+          {mention.sender.avatar && !imageError ? (
             <Image
               src={mention.sender.avatar}
               alt={mention.sender.name}
               width={32}
               height={32}
-              className="w-8 h-8 rounded-full"
+              className="w-8 h-8 rounded-full object-cover"
+              unoptimized
+              onError={() => setImageError(true)}
             />
           ) : (
             <div 
@@ -148,7 +152,7 @@ export default function MentionItem({ mention, isSelected, onClick }: MentionIte
             <span>·</span>
             <span>{mention.sender.name}</span>
             <span>·</span>
-            <span>{timeAgo}</span>
+            <span suppressHydrationWarning>{timeAgo}</span>
             {mention.isThreadResponse && (
               <>
                 <span>·</span>

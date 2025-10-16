@@ -67,6 +67,11 @@ Glean is a unified mentions feed that aggregates all @-mentions and assignments 
 - **Icons**: Lucide React
 - **Images**: Next.js Image component with external domain support
   - Configured for api.dicebear.com (avatar generation)
+  - Error handling with fallback to User icon
+  - Unoptimized loading for external avatars
+  - Object-cover for proper aspect ratio
+- **Date Formatting**: date-fns library
+  - Hydration warnings suppressed for dynamic timestamps
 
 ### Data Models
 

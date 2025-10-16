@@ -4,6 +4,7 @@ import { useMentionsStore } from '@/store/mentions-store';
 import { ExternalLink, MessageSquare, Mail, AlertCircle, CheckCircle2, Timer, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
 
 const sourceIcons = {
   slack: MessageSquare,
@@ -13,6 +14,12 @@ const sourceIcons = {
 
 export default function ContextPreview() {
   const { selectedMention, updateMentionStatus, snoozeMention } = useMentionsStore();
+  const [imageError, setImageError] = useState(false);
+
+  // Reset image error when selected mention changes
+  useEffect(() => {
+    setImageError(false);
+  }, [selectedMention?.id]);
 
   // Show empty state when no mention is selected
   if (!selectedMention) {
@@ -56,13 +63,16 @@ export default function ContextPreview() {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-start gap-3 mb-4">
-            {selectedMention.sender.avatar ? (
+            {selectedMention.sender.avatar && !imageError ? (
               <Image
                 src={selectedMention.sender.avatar}
                 alt={selectedMention.sender.name}
                 width={40}
                 height={40}
-                className="w-10 h-10 rounded-full"
+                className="w-10 h-10 rounded-full object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+                priority
               />
             ) : (
               <div 
@@ -80,7 +90,7 @@ export default function ContextPreview() {
                 <SourceIcon className="w-3 h-3" strokeWidth={2} />
                 <span className="capitalize">{selectedMention.source}</span>
                 <span>·</span>
-                <span>{timeAgo}</span>
+                <span suppressHydrationWarning>{timeAgo}</span>
               </div>
             </div>
           </div>
