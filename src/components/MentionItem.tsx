@@ -4,13 +4,17 @@ import { MentionItem as MentionItemType } from '@/lib/types';
 import { useMentionsStore } from '@/store/mentions-store';
 import { 
   CheckCircle2, 
-  Timer, 
+  Archive,
   ExternalLink, 
   MessageSquare,
   Mail,
   AlertCircle,
-  Circle,
   User,
+  Zap,
+  Info,
+  CheckCircle,
+  Tag,
+  Sparkles,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
@@ -28,20 +32,41 @@ const sourceIcons = {
   jira: AlertCircle,
 };
 
-const priorityConfig = {
-  high: { color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)', icon: AlertCircle },
-  medium: { color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: Circle },
-  low: { color: '#6b7280', bgColor: 'rgba(107, 114, 128, 0.1)', icon: Circle },
+const tagTypeConfig = {
+  action_needed: { 
+    color: '#ef4444', 
+    bgColor: 'rgba(239, 68, 68, 0.15)', 
+    icon: Zap,
+    label: 'Action Needed'
+  },
+  critical_info: { 
+    color: '#5e6ad2', 
+    bgColor: 'rgba(94, 106, 210, 0.15)', 
+    icon: Info,
+    label: 'Critical Info'
+  },
+  resolved: { 
+    color: '#22c55e', 
+    bgColor: 'rgba(34, 197, 94, 0.15)', 
+    icon: CheckCircle,
+    label: 'Resolved'
+  },
+  others: { 
+    color: '#6b7280', 
+    bgColor: 'rgba(107, 114, 128, 0.1)', 
+    icon: Tag,
+    label: 'Info'
+  },
 };
 
 export default function MentionItem({ mention, isSelected, onClick }: MentionItemProps) {
-  const { updateMentionStatus, snoozeMention, connectors } = useMentionsStore();
+  const { updateMentionStatus, archiveMention, connectors } = useMentionsStore();
   const [imageError, setImageError] = useState(false);
   
   const SourceIcon = sourceIcons[mention.source];
   const timeAgo = formatDistanceToNow(mention.timestamp, { addSuffix: true });
-  const priorityConf = priorityConfig[mention.priority];
-  const PriorityIcon = priorityConf.icon;
+  const tagConf = tagTypeConfig[mention.tagType];
+  const TagIcon = tagConf.icon;
   
   // Get connector priority for highlighting
   const connector = connectors.find(c => c.type === mention.source);
@@ -52,11 +77,11 @@ export default function MentionItem({ mention, isSelected, onClick }: MentionIte
     updateMentionStatus(mention.id, 'done');
   };
 
-  const handleSnooze = (e: React.MouseEvent) => {
+  const handleArchive = (e: React.MouseEvent) => {
     e.stopPropagation();
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    snoozeMention(mention.id, tomorrow);
+    archiveMention(mention.id, tomorrow);
   };
 
   const handleOpenSource = (e: React.MouseEvent) => {
@@ -65,13 +90,14 @@ export default function MentionItem({ mention, isSelected, onClick }: MentionIte
   };
 
   const isDone = mention.status === 'done';
+  const isArchived = mention.status === 'archived';
 
   return (
     <div
       className={`
         group relative px-3 py-2.5 rounded-md cursor-pointer transition-smooth
         ${isSelected ? 'shadow-sm' : 'hover:shadow-sm'}
-        ${isDone ? 'opacity-60' : ''}
+        ${isDone || isArchived ? 'opacity-60' : ''}
       `}
       style={{ 
         background: isSelected ? 'var(--selected-bg)' : 
@@ -151,69 +177,94 @@ export default function MentionItem({ mention, isSelected, onClick }: MentionIte
             </div>
             <span>·</span>
             <span>{mention.sender.name}</span>
+            {mention.sender.role && (
+              <>
+                <span>·</span>
+                <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{mention.sender.role}</span>
+              </>
+            )}
             <span>·</span>
             <span suppressHydrationWarning>{timeAgo}</span>
             {mention.isThreadResponse && (
               <>
                 <span>·</span>
-                <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: 'var(--muted-bg)', color: 'var(--muted)' }}>
-                  ↳ Thread
+                <span 
+                  className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded" 
+                  style={{ 
+                    background: mention.isNewInThread ? 'rgba(94, 106, 210, 0.15)' : 'var(--muted-bg)', 
+                    color: mention.isNewInThread ? '#5e6ad2' : 'var(--muted)' 
+                  }}
+                >
+                  {mention.isNewInThread && <Sparkles className="w-3 h-3" strokeWidth={2} />}
+                  ↳ {mention.isNewInThread ? 'New in thread' : 'Thread'}
                 </span>
               </>
             )}
           </div>
 
           {/* Tags and Status */}
-          <div className="flex items-center gap-1.5 mt-2">
-            {/* Priority Badge */}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {/* Smart Tag Badge */}
             <div 
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium"
               style={{ 
-                color: priorityConf.color,
-                background: priorityConf.bgColor,
+                color: tagConf.color,
+                background: tagConf.bgColor,
               }}
             >
-              <PriorityIcon className="w-3 h-3" strokeWidth={2} />
-              <span className="capitalize">{mention.priority}</span>
+              <TagIcon className="w-3 h-3" strokeWidth={2} />
+              <span>{tagConf.label}</span>
             </div>
 
-            {mention.status === 'snoozed' && mention.snoozeUntil && (
+            {mention.status === 'archived' && mention.archiveUntil && (
               <div 
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium"
-                style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)' }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium"
+                style={{ color: '#6b7280', background: 'rgba(107, 114, 128, 0.1)' }}
               >
-                <Timer className="w-3 h-3" strokeWidth={2} />
-                <span>Snoozed</span>
+                <Archive className="w-3 h-3" strokeWidth={2} />
+                <span>Archived</span>
+              </div>
+            )}
+            
+            {/* Show priority factors as small indicators */}
+            {mention.priorityFactors.senderImportance && (
+              <div 
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)' }}
+                title="Important sender"
+              >
+                ⭐ VIP
               </div>
             )}
           </div>
 
-          {/* Hover Actions */}
-          <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-smooth">
-            {mention.actions.canSnooze && mention.status !== 'snoozed' && mention.status !== 'done' && (
-              <button
-                onClick={handleSnooze}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded transition-smooth"
-                style={{ color: 'var(--muted)' }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--muted-bg)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                <Timer className="w-3 h-3" strokeWidth={2} />
-                Snooze
-              </button>
-            )}
-            
+        </div>
+
+        {/* Persistent Actions on Right Side */}
+        <div className="flex-shrink-0 flex items-center gap-1 ml-2">
+          {mention.actions.canArchive && mention.status !== 'archived' && mention.status !== 'done' && (
             <button
-              onClick={handleOpenSource}
+              onClick={handleArchive}
               className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded transition-smooth"
-              style={{ color: 'var(--muted)' }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--muted-bg)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              style={{ color: 'var(--muted)', background: 'var(--muted-bg)' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(107, 114, 128, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--muted-bg)'}
+              title="Archive"
             >
-              <ExternalLink className="w-3 h-3" strokeWidth={2} />
-              Open
+              <Archive className="w-3.5 h-3.5" strokeWidth={2} />
             </button>
-          </div>
+          )}
+          
+          <button
+            onClick={handleOpenSource}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded transition-smooth"
+            style={{ color: 'var(--muted)', background: 'var(--muted-bg)' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(94, 106, 210, 0.2)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--muted-bg)'}
+            title="Open in source"
+          >
+            <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
+          </button>
         </div>
       </div>
     </div>

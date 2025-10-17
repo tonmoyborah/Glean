@@ -1,7 +1,7 @@
 'use client';
 
 import { useMentionsStore } from '@/store/mentions-store';
-import { ExternalLink, MessageSquare, Mail, AlertCircle, CheckCircle2, Timer, User } from 'lucide-react';
+import { ExternalLink, MessageSquare, Mail, AlertCircle, CheckCircle2, Archive, User, ChevronDown, Zap, Info as InfoIcon, CheckCircle, Tag as TagIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -12,9 +12,37 @@ const sourceIcons = {
   jira: AlertCircle,
 };
 
+const tagTypeConfig = {
+  action_needed: { 
+    color: '#ef4444', 
+    bgColor: 'rgba(239, 68, 68, 0.15)', 
+    icon: Zap,
+    label: 'Action Needed'
+  },
+  critical_info: { 
+    color: '#5e6ad2', 
+    bgColor: 'rgba(94, 106, 210, 0.15)', 
+    icon: InfoIcon,
+    label: 'Critical Info'
+  },
+  resolved: { 
+    color: '#22c55e', 
+    bgColor: 'rgba(34, 197, 94, 0.15)', 
+    icon: CheckCircle,
+    label: 'Resolved'
+  },
+  others: { 
+    color: '#6b7280', 
+    bgColor: 'rgba(107, 114, 128, 0.1)', 
+    icon: TagIcon,
+    label: 'Info'
+  },
+};
+
 export default function ContextPreview() {
-  const { selectedMention, updateMentionStatus, snoozeMention } = useMentionsStore();
+  const { selectedMention, updateMentionStatus, archiveMention } = useMentionsStore();
   const [imageError, setImageError] = useState(false);
+  const [showContextDropdown, setShowContextDropdown] = useState(false);
 
   // Reset image error when selected mention changes
   useEffect(() => {
@@ -51,10 +79,10 @@ export default function ContextPreview() {
     updateMentionStatus(selectedMention.id, 'done');
   };
 
-  const handleSnooze = () => {
+  const handleArchive = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    snoozeMention(selectedMention.id, tomorrow);
+    archiveMention(selectedMention.id, tomorrow);
   };
 
   return (
@@ -120,6 +148,121 @@ export default function ContextPreview() {
           </div>
         </div>
 
+        {/* Smart Tag & Manual Correction */}
+        <div className="mb-6">
+          <h4 className="text-[12px] font-medium mb-2 uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+            Smart Tag
+          </h4>
+          <div className="relative">
+            <button
+              onClick={() => setShowContextDropdown(!showContextDropdown)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md text-[13px] font-medium transition-smooth"
+              style={{ 
+                background: tagTypeConfig[selectedMention.tagType].bgColor,
+                color: tagTypeConfig[selectedMention.tagType].color,
+                border: `1px solid ${tagTypeConfig[selectedMention.tagType].color}40`
+              }}
+            >
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const TagIcon = tagTypeConfig[selectedMention.tagType].icon;
+                  return <TagIcon className="w-4 h-4" strokeWidth={2} />;
+                })()}
+                <span>{tagTypeConfig[selectedMention.tagType].label}</span>
+              </div>
+              <ChevronDown className="w-4 h-4" strokeWidth={2} />
+            </button>
+            
+            {/* Dropdown for manual correction (non-functional prototype) */}
+            {showContextDropdown && (
+              <div 
+                className="absolute top-full left-0 right-0 mt-1 rounded-md shadow-lg overflow-hidden z-10"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--border)' }}
+              >
+                {Object.entries(tagTypeConfig).map(([key, config]) => {
+                  const Icon = config.icon;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setShowContextDropdown(false)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium transition-smooth"
+                      style={{ color: config.color }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--muted-bg)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <Icon className="w-4 h-4" strokeWidth={2} />
+                      <span>{config.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <p className="text-[11px] mt-1.5" style={{ color: 'var(--muted)' }}>
+            💡 Auto-detected · Click to manually correct
+          </p>
+        </div>
+
+        {/* Priority Factors */}
+        <div className="mb-6">
+          <h4 className="text-[12px] font-medium mb-2 uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+            Why This is Prioritized
+          </h4>
+          <div className="space-y-2">
+            {selectedMention.priorityFactors.senderImportance && (
+              <div 
+                className="flex items-start gap-2 px-3 py-2 rounded-md text-[12px]"
+                style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}
+              >
+                <span className="mt-0.5">⭐</span>
+                <div>
+                  <div className="font-medium">Important Sender</div>
+                  <div style={{ color: 'var(--muted)' }}>Message from {selectedMention.sender.role || 'VIP'}</div>
+                </div>
+              </div>
+            )}
+            
+            {selectedMention.priorityFactors.urgencySignals && selectedMention.priorityFactors.urgencySignals.length > 0 && (
+              <div 
+                className="flex items-start gap-2 px-3 py-2 rounded-md text-[12px]"
+                style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+              >
+                <span className="mt-0.5">⚡</span>
+                <div>
+                  <div className="font-medium">Urgency Signals Detected</div>
+                  <div style={{ color: 'var(--muted)' }}>
+                    {selectedMention.priorityFactors.urgencySignals.slice(0, 2).join(', ')}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {selectedMention.priorityFactors.soloResponsibility && (
+              <div 
+                className="flex items-start gap-2 px-3 py-2 rounded-md text-[12px]"
+                style={{ background: 'rgba(94, 106, 210, 0.1)', color: '#5e6ad2' }}
+              >
+                <span className="mt-0.5">👤</span>
+                <div>
+                  <div className="font-medium">Solo Responsibility</div>
+                  <div style={{ color: 'var(--muted)' }}>You&apos;re the only person tagged</div>
+                </div>
+              </div>
+            )}
+            
+            {!selectedMention.priorityFactors.senderImportance && 
+             !selectedMention.priorityFactors.urgencySignals?.length && 
+             !selectedMention.priorityFactors.soloResponsibility && (
+              <div 
+                className="px-3 py-2 rounded-md text-[12px]"
+                style={{ background: 'var(--muted-bg)', color: 'var(--muted)' }}
+              >
+                No specific priority factors detected
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Details */}
         <div className="mb-6">
           <h4 className="text-[12px] font-medium mb-3 uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
@@ -151,7 +294,7 @@ export default function ContextPreview() {
                 style={{ 
                   color: selectedMention.status === 'unread' ? '#7c84db' :
                          selectedMention.status === 'done' ? '#22c55e' :
-                         selectedMention.status === 'snoozed' ? '#f59e0b' : '#a1a1aa'
+                         selectedMention.status === 'archived' ? '#6b7280' : '#a1a1aa'
                 }}
               >
                 {selectedMention.status}
@@ -208,16 +351,16 @@ export default function ContextPreview() {
             </button>
           )}
 
-          {selectedMention.actions.canSnooze && selectedMention.status !== 'snoozed' && selectedMention.status !== 'done' && (
+          {selectedMention.actions.canArchive && selectedMention.status !== 'archived' && selectedMention.status !== 'done' && (
             <button 
-              onClick={handleSnooze}
+              onClick={handleArchive}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-[13px] font-medium transition-smooth"
-              style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.25)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.15)'}
+              style={{ background: 'rgba(107, 114, 128, 0.15)', color: '#6b7280' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(107, 114, 128, 0.25)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(107, 114, 128, 0.15)'}
             >
-              <Timer className="w-4 h-4" strokeWidth={2} />
-              Snooze
+              <Archive className="w-4 h-4" strokeWidth={2} />
+              Archive
             </button>
           )}
         </div>

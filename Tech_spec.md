@@ -1,7 +1,7 @@
 # Glean - Unified Mentions Feed Technical Specification
 
 ## Project Overview
-Glean is a unified mentions feed that aggregates all @-mentions and assignments from core tools (Slack, Email, Jira) into a single chronological feed, enabling users to preview context, mark done, snooze, or open the source without app-switching.
+Glean is a unified mentions feed that aggregates all @-mentions and assignments from core tools (Slack, Email, Jira) into a single chronological feed, enabling users to preview context, mark done, archive, or open the source without app-switching.
 
 ## Core Features
 
@@ -10,14 +10,19 @@ Glean is a unified mentions feed that aggregates all @-mentions and assignments 
 - **Display Elements**: 
   - Status checkbox (mark as done)
   - Sender avatar (32x32px, rounded)
-  - Sender information
+  - Sender information (name and role)
   - Timestamp
   - Source app (Slack, Email, Jira)
   - Brief context snippet (2-3 lines)
-  - Thread responses indicator
-  - Priority badge
-  - Hover actions (snooze, open)
-- **Priority**: Items from priority connectors are highlighted
+  - Thread state indicator (new in thread vs ongoing thread)
+  - Smart tag badge (Action Needed, Critical Info, Resolved, Others)
+  - Priority factor indicators (VIP sender badge)
+  - Persistent actions on right side (archive, open)
+- **Grouping**: Mentions with similar context are grouped together with visual labels
+- **Feed Sections**: 
+  - **Priority Section**: Contains Action Needed and Critical Info items
+  - **Later Section**: Contains Resolved and Others items
+- **Thread State Visualization**: UI distinguishes between new mentions in ongoing threads vs mentions in fresh threads
 
 ### 2. Context Preview
 - **Purpose**: Provide 2-3 line preview of surrounding conversation/document
@@ -28,14 +33,38 @@ Glean is a unified mentions feed that aggregates all @-mentions and assignments 
   - Auto-updates selection when filters change
   - Shows empty state when no mentions available
 - **Content**: Shows relevant context without full app switching
+- **New Features**:
+  - Manual context correction dropdown (allows users to override auto-detected context)
+  - Priority factors display showing why an item was prioritized
+  - Smart tag indicator with visual feedback
 
-### 3. Quick Inline Actions
+### 3. Smart Tagging & Context Detection
+- **Auto Context Detection**: Analyzes message content using signal phrases
+  - **Action Needed Signals**: "please check", "can you", "need you to", "review", "approve", "urgent", "action required", "asap", "by eod"
+  - **Information Signals**: "fyi", "for your information", "just wanted to let you know", "heads up", "update:", "reminder:"
+  - **Resolved Signals**: "resolved", "completed", "done", "fixed", "closed", "finished", "merged"
+- **Smart Tag Types**:
+  - **Action Needed**: Context = action_needed AND Priority = high (Red/orange accent)
+  - **Critical Info**: Context = information AND Priority = high (Purple accent)
+  - **Resolved**: Context = resolved (Green accent)
+  - **Others**: All other combinations (Gray accent)
+- **Manual Correction**: Users can manually override misclassified contexts via dropdown in Context Preview panel
+
+### 4. Auto-Prioritization
+- **Priority Factors** (computed for prototyping):
+  - **Sender Importance**: Based on sender role (CEO, Manager, etc.)
+  - **Urgency Signals**: Detected phrases indicating time sensitivity
+  - **Solo Responsibility**: User is tagged alone vs. with others
+  - **Context Urgency**: Message context indicates immediate action needed
+- **Visual Indicators**: Priority factors displayed in Context Preview panel and as badges on mention cards
+
+### 5. Quick Inline Actions
 - **Mark as Done**: Mark item as completed
-- **Snooze for later**: Temporarily hide item with time-based return
+- **Archive**: Temporarily hide item with time-based return
 - **Open in source app**: Deep link to original context
 - **Reply directly**: If connector supports it (Slack, Email)
 
-### 4. Filtering and Sorting
+### 6. Filtering and Sorting
 - **Filter by**:
   - Source app (Slack, Email, Jira) - Modern dropdown with checkboxes
   - User/Sender - Multi-select dropdown
@@ -51,7 +80,7 @@ Glean is a unified mentions feed that aggregates all @-mentions and assignments 
   - Clear all filters button
   - Outside-click to close dropdowns
 
-### 5. Connector Management
+### 7. Connector Management
 - **Connector Selection**: Choose which connectors to display
 - **Priority Assignment**: Set priority levels for different connectors
 - **Status Indicators**: Show connection status for each connector
@@ -85,6 +114,7 @@ interface MentionItem {
     name: string;
     avatar?: string;
     email?: string;
+    role?: string; // For prioritization (CEO, Manager, etc.)
   };
   timestamp: Date;
   title: string;
@@ -93,12 +123,24 @@ interface MentionItem {
   threadId?: string; // For grouping thread responses
   isThreadResponse: boolean;
   priority: 'high' | 'medium' | 'low';
-  status: 'unread' | 'read' | 'done' | 'snoozed';
-  snoozeUntil?: Date;
+  status: 'unread' | 'read' | 'done' | 'archived';
+  archiveUntil?: Date;
+  // Smart tagging and context detection fields
+  detectedContext: 'action_needed' | 'information' | 'resolved';
+  tagType: 'action_needed' | 'critical_info' | 'resolved' | 'others';
+  groupId?: string; // For grouping similar context mentions
+  groupLabel?: string; // Display label for the group
+  isNewInThread: boolean; // True if this is a new mention in an ongoing thread
+  priorityFactors: {
+    senderImportance?: boolean;
+    urgencySignals?: string[]; // Array of detected phrases
+    soloResponsibility?: boolean; // True if user is tagged alone
+    contextUrgency?: boolean;
+  };
   actions: {
     canReply: boolean;
     canMarkDone: boolean;
-    canSnooze: boolean;
+    canArchive: boolean;
     sourceUrl: string;
   };
 }
@@ -128,6 +170,48 @@ interface FilterState {
 }
 ```
 
+### Context Detection Logic
+
+The application uses signal phrase detection to automatically categorize mentions:
+
+```typescript
+// Context detection analyzes title and content for signal phrases
+function detectContext(title: string, content: string): 'action_needed' | 'information' | 'resolved' {
+  const text = (title + ' ' + content).toLowerCase();
+  
+  // Action needed signals
+  const actionSignals = [
+    'please check', 'can you', 'need you to', 'review', 'approve', 'urgent', 
+    'action required', 'needs your', 'asap', 'by eod', 'assigned to', 'can you confirm'
+  ];
+  
+  // Resolved signals
+  const resolvedSignals = [
+    'resolved', 'completed', 'done', 'fixed', 'closed', 'finished', 'merged'
+  ];
+  
+  // Information signals
+  const infoSignals = [
+    'fyi', 'for your information', 'just wanted to let you know', 'heads up', 
+    'update:', 'reminder:', 'note:'
+  ];
+  
+  // Check for resolved first, then action needed, then information
+  // Default to information if no clear signals
+}
+
+// Tag type is computed based on context + priority
+function computeTagType(
+  detectedContext: 'action_needed' | 'information' | 'resolved',
+  priority: 'high' | 'medium' | 'low'
+): 'action_needed' | 'critical_info' | 'resolved' | 'others' {
+  // Action Needed: context = action_needed AND priority = high
+  // Critical Info: context = information AND priority = high
+  // Resolved: context = resolved (any priority)
+  // Others: all other combinations
+}
+```
+
 ### Component Structure
 ```
 src/
@@ -137,17 +221,17 @@ src/
 │   └── globals.css
 ├── components/
 │   ├── ui/ (Radix UI components)
-│   ├── MentionItem.tsx
-│   ├── MentionsFeed.tsx
+│   ├── MentionItem.tsx - Smart tags, thread state indicators
+│   ├── MentionsFeed.tsx - Priority/Later sections, grouping
 │   ├── FilterControls.tsx
 │   ├── ConnectorSettings.tsx
-│   └── ContextPreview.tsx
+│   └── ContextPreview.tsx - Manual correction, priority factors
 ├── lib/
-│   ├── types.ts
-│   ├── mock-data.ts
+│   ├── types.ts - Updated with new fields
+│   ├── mock-data.ts - Context detection logic, mock data
 │   └── utils.ts
 └── store/
-    └── mentions-store.ts
+    └── mentions-store.ts - Section computation helpers
 ```
 
 ## Implementation Status
@@ -180,14 +264,29 @@ src/
 
 The application is fully functional with all core features implemented:
 
-- **Unified Mentions Feed**: Displays all mentions in chronological order with proper grouping
+- **Unified Mentions Feed**: Displays mentions split into Priority and Later sections
+  - Smart tag badges (Action Needed, Critical Info, Resolved, Others)
+  - Visual grouping for mentions with similar context
+  - Thread state indicators (new in thread vs ongoing thread)
+  - Sender role display
+  - Priority factor badges (VIP indicator)
 - **Context Preview**: Right sidebar (always visible, 384px width) shows detailed mention information and actions
   - Auto-selects first mention on page load
   - Maintains selection when filtering unless filtered out
   - Updates to first available mention when current selection is filtered out
   - Shows empty state when no mentions are available
+  - Manual context correction dropdown (UI only for prototyping)
+  - Priority factors display with detailed explanations
+- **Smart Tagging & Context Detection**: Auto-detects context using signal phrase analysis
+  - Action needed, information, and resolved contexts
+  - Computed tag types based on context and priority
+  - Mock implementation suitable for prototyping
+- **Auto-Prioritization**: Displays priority factors including:
+  - Sender importance (based on role)
+  - Urgency signals (detected phrases)
+  - Solo responsibility indicators
 - **Filtering & Sorting**: Complete filtering by source, type, time, and sorting options
-- **Quick Actions**: Mark as done, snooze, and open source functionality
+- **Quick Actions**: Mark as done, archive, and open source functionality
 - **Connector Management**: Priority assignment and enable/disable toggles
 - **State Management**: Zustand store for all application state with smart default selection
 - **Responsive Design**: Works on desktop and mobile devices
@@ -234,6 +333,10 @@ The UI follows a Linear-inspired design aesthetic:
 - Include various mention types (direct mentions, assignments, thread responses)
 - Simulate different priority levels and timestamps
 - Include diverse content types and contexts
+- **Context Detection**: Mock data uses signal phrase detection to auto-assign contexts
+- **Priority Factors**: Mock data simulates various priority factors (VIP senders, urgency signals, solo responsibility)
+- **Grouping**: Mock mentions are grouped by similar topics (e.g., "Database Migration Project", "Feature Requests")
+- **Thread States**: Mix of new mentions in ongoing threads vs fresh thread mentions
 
 ## Future Considerations
 - Real-time updates via WebSocket

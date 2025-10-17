@@ -6,6 +6,7 @@ export interface MentionItem {
     name: string;
     avatar?: string;
     email?: string;
+    role?: string; // For prioritization (CEO, Manager, etc.)
   };
   timestamp: Date;
   title: string;
@@ -14,12 +15,24 @@ export interface MentionItem {
   threadId?: string; // For grouping thread responses
   isThreadResponse: boolean;
   priority: 'high' | 'medium' | 'low';
-  status: 'unread' | 'read' | 'done' | 'snoozed';
-  snoozeUntil?: Date;
+  status: 'unread' | 'read' | 'done' | 'archived';
+  archiveUntil?: Date;
+  // New fields for smart tagging and context detection
+  detectedContext: 'action_needed' | 'information' | 'resolved';
+  tagType: 'action_needed' | 'critical_info' | 'resolved' | 'others';
+  groupId?: string; // For grouping similar context mentions
+  groupLabel?: string; // Display label for the group
+  isNewInThread: boolean; // True if this is a new mention in an ongoing thread
+  priorityFactors: {
+    senderImportance?: boolean;
+    urgencySignals?: string[]; // Array of detected phrases
+    soloResponsibility?: boolean; // True if user is tagged alone
+    contextUrgency?: boolean;
+  };
   actions: {
     canReply: boolean;
     canMarkDone: boolean;
-    canSnooze: boolean;
+    canArchive: boolean;
     sourceUrl: string;
   };
 }
@@ -51,7 +64,7 @@ export interface MentionsStore {
   // Actions
   setMentions: (mentions: MentionItem[]) => void;
   updateMentionStatus: (id: string, status: MentionItem['status']) => void;
-  snoozeMention: (id: string, until: Date) => void;
+  archiveMention: (id: string, until: Date) => void;
   setFilters: (filters: Partial<FilterState>) => void;
   setSelectedMention: (mention: MentionItem | null) => void;
   updateConnector: (id: string, updates: Partial<Connector>) => void;

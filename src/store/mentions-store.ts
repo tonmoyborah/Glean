@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { MentionsStore } from '@/lib/types';
+import { MentionsStore, MentionItem } from '@/lib/types';
 import { mockMentions, mockConnectors } from '@/lib/mock-data';
 
 export const useMentionsStore = create<MentionsStore>((set, get) => ({
@@ -23,10 +23,10 @@ export const useMentionsStore = create<MentionsStore>((set, get) => ({
     set({ mentions });
   },
 
-  snoozeMention: (id, until) => {
+  archiveMention: (id, until) => {
     const mentions = get().mentions.map((mention) =>
       mention.id === id 
-        ? { ...mention, status: 'snoozed' as const, snoozeUntil: until }
+        ? { ...mention, status: 'archived' as const, archiveUntil: until }
         : mention
     );
     set({ mentions });
@@ -46,3 +46,18 @@ export const useMentionsStore = create<MentionsStore>((set, get) => ({
     set({ connectors });
   },
 }));
+
+// Helper functions for section computation
+export const getMentionsBySection = (mentions: MentionItem[]) => {
+  const priority = mentions.filter(
+    m => m.tagType === 'action_needed' || m.tagType === 'critical_info'
+  );
+  const later = mentions.filter(
+    m => m.tagType === 'resolved' || m.tagType === 'others'
+  );
+  return { priority, later };
+};
+
+export const isPriorityMention = (mention: MentionItem): boolean => {
+  return mention.tagType === 'action_needed' || mention.tagType === 'critical_info';
+};

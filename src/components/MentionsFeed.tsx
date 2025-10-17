@@ -2,7 +2,7 @@
 
 import { useMentionsStore } from '@/store/mentions-store';
 import MentionItem from './MentionItem';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, type JSX } from 'react';
 // import { formatDistanceToNow } from 'date-fns';
 
 export default function MentionsFeed() {
@@ -66,31 +66,35 @@ export default function MentionsFeed() {
     return filtered;
   }, [mentions, filters]);
 
-  // Group mentions by thread
-  const groupedMentions = useMemo(() => {
+  // Separate mentions into Priority and Later sections
+  const { priorityMentions, laterMentions } = useMemo(() => {
+    const priority = filteredAndSortedMentions.filter(
+      m => m.tagType === 'action_needed' || m.tagType === 'critical_info'
+    );
+    const later = filteredAndSortedMentions.filter(
+      m => m.tagType === 'resolved' || m.tagType === 'others'
+    );
+    return { priorityMentions: priority, laterMentions: later };
+  }, [filteredAndSortedMentions]);
+
+  // Group mentions by groupId for visual grouping
+  const groupMentions = (mentions: typeof filteredAndSortedMentions) => {
     const groups: { [key: string]: typeof filteredAndSortedMentions } = {};
     const standalone: typeof filteredAndSortedMentions = [];
 
-    filteredAndSortedMentions.forEach((mention) => {
-      if (mention.threadId) {
-        if (!groups[mention.threadId]) {
-          groups[mention.threadId] = [];
+    mentions.forEach((mention) => {
+      if (mention.groupId) {
+        if (!groups[mention.groupId]) {
+          groups[mention.groupId] = [];
         }
-        groups[mention.threadId].push(mention);
+        groups[mention.groupId].push(mention);
       } else {
         standalone.push(mention);
       }
     });
 
-    // Sort groups by the earliest mention in each thread
-    const sortedGroups = Object.values(groups).sort((a, b) => {
-      const aTime = Math.min(...a.map(m => m.timestamp.getTime()));
-      const bTime = Math.min(...b.map(m => m.timestamp.getTime()));
-      return bTime - aTime;
-    });
-
-    return [...standalone, ...sortedGroups.flat()];
-  }, [filteredAndSortedMentions]);
+    return { groups, standalone };
+  };
 
   const handleMentionClick = (mention: typeof mentions[0]) => {
     setSelectedMention(mention);
@@ -98,20 +102,66 @@ export default function MentionsFeed() {
 
   // Auto-select first mention when filtered mentions change and no selection exists
   useEffect(() => {
-    if (groupedMentions.length > 0 && !selectedMention) {
-      setSelectedMention(groupedMentions[0]);
-    } else if (groupedMentions.length > 0 && selectedMention) {
+    const allMentions = [...priorityMentions, ...laterMentions];
+    if (allMentions.length > 0 && !selectedMention) {
+      setSelectedMention(allMentions[0]);
+    } else if (allMentions.length > 0 && selectedMention) {
       // Check if selected mention is still in filtered list
-      const isStillVisible = groupedMentions.find(m => m.id === selectedMention.id);
+      const isStillVisible = allMentions.find(m => m.id === selectedMention.id);
       if (!isStillVisible) {
         // Select first mention if current selection is filtered out
-        setSelectedMention(groupedMentions[0]);
+        setSelectedMention(allMentions[0]);
       }
-    } else if (groupedMentions.length === 0) {
+    } else if (allMentions.length === 0) {
       // Clear selection if no mentions
       setSelectedMention(null);
     }
-  }, [groupedMentions, selectedMention, setSelectedMention]);
+  }, [priorityMentions, laterMentions, selectedMention, setSelectedMention]);
+
+  // Render mentions with group labels
+  const renderMentionsWithGroups = (mentions: typeof filteredAndSortedMentions) => {
+    const { groups, standalone } = groupMentions(mentions);
+    const items: JSX.Element[] = [];
+
+    // Render standalone mentions first
+    standalone.forEach((mention) => {
+      items.push(
+        <MentionItem
+          key={mention.id}
+          mention={mention}
+          isSelected={selectedMention?.id === mention.id}
+          onClick={() => handleMentionClick(mention)}
+        />
+      );
+    });
+
+    // Render grouped mentions with labels
+    Object.entries(groups).forEach(([groupId, groupMentions]) => {
+      const groupLabel = groupMentions[0]?.groupLabel || groupId;
+      items.push(
+        <div key={`group-${groupId}`} className="mt-3">
+          <div 
+            className="text-[11px] font-medium mb-1.5 px-1 py-1 rounded"
+            style={{ color: 'var(--muted)', background: 'var(--muted-bg)' }}
+          >
+            📁 {groupLabel}
+          </div>
+          <div className="space-y-1 pl-2 border-l-2" style={{ borderColor: 'var(--border)' }}>
+            {groupMentions.map((mention) => (
+              <MentionItem
+                key={mention.id}
+                mention={mention}
+                isSelected={selectedMention?.id === mention.id}
+                onClick={() => handleMentionClick(mention)}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    });
+
+    return items;
+  };
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -126,32 +176,63 @@ export default function MentionsFeed() {
           </p>
         </div>
 
-        <div className="space-y-1">
-          {groupedMentions.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="mb-3" style={{ color: 'var(--muted)' }}>
-                <svg className="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <h3 className="text-[14px] font-medium mb-1" style={{ color: 'var(--foreground)' }}>
-                No mentions found
-              </h3>
-              <p className="text-[13px]" style={{ color: 'var(--muted)' }}>
-                Try adjusting your filters to see more results
-              </p>
+        {filteredAndSortedMentions.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="mb-3" style={{ color: 'var(--muted)' }}>
+              <svg className="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
             </div>
-          ) : (
-            groupedMentions.map((mention) => (
-              <MentionItem
-                key={mention.id}
-                mention={mention}
-                isSelected={selectedMention?.id === mention.id}
-                onClick={() => handleMentionClick(mention)}
-              />
-            ))
-          )}
-        </div>
+            <h3 className="text-[14px] font-medium mb-1" style={{ color: 'var(--foreground)' }}>
+              No mentions found
+            </h3>
+            <p className="text-[13px]" style={{ color: 'var(--muted)' }}>
+              Try adjusting your filters to see more results
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Priority Section */}
+            {priorityMentions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--foreground)' }}>
+                    Priority
+                  </h3>
+                  <span 
+                    className="text-[11px] font-medium px-1.5 py-0.5 rounded"
+                    style={{ color: 'var(--muted)', background: 'var(--muted-bg)' }}
+                  >
+                    {priorityMentions.length}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {renderMentionsWithGroups(priorityMentions)}
+                </div>
+              </div>
+            )}
+
+            {/* Later Section */}
+            {laterMentions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--foreground)' }}>
+                    Later
+                  </h3>
+                  <span 
+                    className="text-[11px] font-medium px-1.5 py-0.5 rounded"
+                    style={{ color: 'var(--muted)', background: 'var(--muted-bg)' }}
+                  >
+                    {laterMentions.length}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {renderMentionsWithGroups(laterMentions)}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
